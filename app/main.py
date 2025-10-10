@@ -6,6 +6,23 @@ from dotenv import load_dotenv
 from app.llm_generator import generate_app_code, decode_attachments
 from app.github_utils import create_repo, create_or_update_file, enable_pages, generate_mit_license
 from app.notify import notify_evaluation_server
+import json
+
+PROCESSED_PATH = "/tmp/processed_requests.json"
+
+def load_processed():
+    if os.path.exists(PROCESSED_PATH):
+        with open(PROCESSED_PATH, "r") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
+
+def save_processed(data):
+    with open(PROCESSED_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+
 
 load_dotenv()
 USER_SECRET = os.getenv("USER_SECRET")
@@ -22,6 +39,28 @@ async def receive_request(request: Request):
     if data.get("secret") != USER_SECRET:
         print("❌ Invalid secret received.")
         return {"error": "Invalid secret"}
+
+    # Load already processed requests
+    processed = load_processed()
+    key = f"{data['email']}::{data['task']}::round{data['round']}::nonce{data['nonce']}"
+
+    # Duplicate detection
+    if key in processed:
+        print(f"⚠ Duplicate request detected for {key}. Skipping rebuild & reusing previous results.")
+        prev = processed[key]
+        payload = {
+            "email": data.get("email"),
+            "task": data.get("task"),
+            "round": data.get("round"),
+            "nonce": data.get("nonce"),
+            "repo_url": prev.get("repo_url"),
+            "commit_sha": prev.get("commit_sha"),
+            "pages_url": prev.get("pages_url"),
+            }
+        # Re-notify evaluation server (in case their side missed it)
+        notify_evaluation_server(data.get("evaluation_url"), payload)
+        return {"status": "ok", "note": "duplicate request handled & re-notified"}
+
 
     # Step A: Decode attachments (saved to /tmp)
     attachments = data.get("attachments", [])
@@ -92,7 +131,17 @@ async def receive_request(request: Request):
         "commit_sha": commit_sha,
         "pages_url": pages_url
     }
+
     notify_evaluation_server(data.get("evaluation_url"), payload)
+
+    # After success:
+    processed[key] = {
+        "repo_url": repo.html_url,
+        "commit_sha": commit_sha,
+        "pages_url": pages_url
+    }
+    save_processed(processed)
+
 
     # Step 9: respond success
     return {"status": "ok"}
