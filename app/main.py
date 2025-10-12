@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, BackgroundTasks
+import time
 import os, json, base64
 from dotenv import load_dotenv
 from app.llm_generator import generate_app_code, decode_attachments
@@ -119,6 +120,10 @@ def process_request(data):
         "commit_sha": commit_sha,
         "pages_url": pages_url,
     }
+    
+    print("⏳ Waiting 180 seconds for GitHub Pages to deploy...")
+    time.sleep(180)
+
 
     notify_evaluation_server(data["evaluation_url"], payload)
 
