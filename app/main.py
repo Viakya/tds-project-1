@@ -121,8 +121,8 @@ def process_request(data):
         "pages_url": pages_url,
     }
     
-    print("⏳ Waiting 180 seconds for GitHub Pages to deploy...")
-    time.sleep(180)
+    print("⏳ Waiting 120 seconds for GitHub Pages to deploy...")
+    time.sleep(120)
 
 
     notify_evaluation_server(data["evaluation_url"], payload)
@@ -136,7 +136,7 @@ def process_request(data):
 
 
 # === Main endpoint ===
-@app.post("/api-endpoint")
+@app.post("/problem-pipeline")
 async def receive_request(request: Request, background_tasks: BackgroundTasks):
     data = await request.json()
     print("📩 Received request:", data)
