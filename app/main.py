@@ -161,3 +161,15 @@ async def receive_request(request: Request, background_tasks: BackgroundTasks):
 
     # Immediate HTTP 200 acknowledgment
     return {"status": "accepted", "note": f"processing round {data['round']} started"}
+
+from datetime import datetime
+from fastapi import Query
+
+@app.get("/ping")
+async def keep_alive_ping(q: str = Query(None, description="Optional ping timestamp")):
+    """Ping endpoint to keep Render awake and log ping time."""
+    current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"✅ Ping received at {current_time} | requested at: {q or 'none'}")
+    return "ok"
+
+
